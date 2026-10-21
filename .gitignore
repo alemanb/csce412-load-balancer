@@ -1,0 +1,5 @@
+*.o
+loadbalancer
+loadbalancer.exe
+*.log
+docs/

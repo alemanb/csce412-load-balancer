@@ -1,0 +1,33 @@
+# Load balancer configuration (key=value, # starts a comment)
+
+# Defaults; main asks the user for these and can override them
+numServers=20
+runTime=100000
+
+# Traffic: each cycle there is an arrivalChance% chance that 1..maxArrivals requests arrive
+arrivalChance=50
+maxArrivals=3
+
+# Task time range in clock cycles
+minTime=2
+maxTime=50
+
+# Scaling: wait scaleWait cycles between checks; keep queue in [minThreshold*servers, maxThreshold*servers]
+scaleWait=50
+minThreshold=50
+maxThreshold=80
+initialPerServer=100
+
+# Output
+verbose=false
+logFile=loadbalancer.log
+
+# 0 = random seed each run; any other value reproduces the same run
+seed=0
+
+# Firewall: blocked source IP ranges (repeat the key for more)
+blockedRange=10.0.0.0-10.255.255.255
+blockedRange=192.168.0.0-192.168.255.255
+
+# Bonus: route S jobs and P jobs to separate load balancers
+switchMode=false

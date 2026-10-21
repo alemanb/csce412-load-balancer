@@ -1,0 +1,106 @@
+/**
+ * @file LoadBalancer.cpp
+ * @brief LoadBalancer implementation.
+ */
+#include "LoadBalancer.h"
+
+#include <sstream>
+
+LoadBalancer::LoadBalancer(const std::string& name, const Config& cfg, Logger& log,
+                           const Firewall& fw, int startServers, bool generatesArrivals)
+    : name_(name), cfg_(cfg), log_(log), fw_(fw), generatesArrivals_(generatesArrivals) {
+    for (int i = 0; i < startServers; ++i) {
+        servers_.push_back(new WebServer(nextServerId_++));
+    }
+    stats_.startServers = startServers;
+    stats_.peakServers = startServers;
+    stats_.minServers = startServers;
+}
+
+LoadBalancer::~LoadBalancer() {
+    for (WebServer* s : servers_) delete s;
+}
+
+void LoadBalancer::fillQueue(int count) {
+    for (int i = 0; i < count; ++i) {
+        addRequest(Request::random(cfg_.minTime, cfg_.maxTime));
+    }
+    stats_.startQueueSize = queue_.size();
+}
+
+bool LoadBalancer::addRequest(const Request& r) {
+    // TODO(you):
+    //   1. Count it as generated.
+    //   2. Ask fw_ whether r.ipIn is blocked. If so: count it, log an Event::BLOCKED, return false.
+    //   3. Otherwise push it on queue_, update peakQueue, log Event::ARRIVAL, return true.
+    // Tip: put "[" + name_ + " t=" + std::to_string(clock_) + "]" at the front of each
+    //      message so you can tell load balancers and times apart in the log.
+    (void)r;
+    return false;
+}
+
+void LoadBalancer::step() {
+    // TODO(you): this is your flowchart's loop body. In order:
+    //   - generateArrivals() (only if generatesArrivals_)
+    //   - processServers()
+    //   - checkScaling()
+    //   - clock_++
+    // Think about why the order matters (e.g. can a request arrive and be served in the same cycle?).
+}
+
+void LoadBalancer::run(int cycles) {
+    for (int i = 0; i < cycles; ++i) step();
+}
+
+void LoadBalancer::generateArrivals() {
+    // TODO(you): with cfg_.arrivalChance percent probability, create between 1 and
+    // cfg_.maxArrivals random requests and pass each to addRequest().
+    // randInt() from Request.h is useful here.
+}
+
+void LoadBalancer::processServers() {
+    // TODO(you): for each server in servers_:
+    //   - tick() it; if it returns true, count a completion and log Event::COMPLETE.
+    //   - if it is now idle and the queue isn't empty, pop() a request, assign() it,
+    //     count it, and log Event::ASSIGN.
+    //   - add up idle servers into stats_.idleServerCycles (shows under/over-utilization).
+}
+
+void LoadBalancer::checkScaling() {
+    // TODO(you): this is requirement #10.
+    //   - If fewer than cfg_.scaleWait cycles have passed since lastScaleTime_, return.
+    //   - Compare queue_.size() with cfg_.minThreshold * servers and cfg_.maxThreshold * servers.
+    //   - Too big -> addServer(). Too small -> removeServer() (never go below 1 server!).
+    //   - Reset lastScaleTime_ so you wait n cycles before checking again.
+}
+
+void LoadBalancer::addServer() {
+    // TODO(you): new a WebServer with the next id, push it into servers_,
+    // update serversAdded / peakServers, log Event::SCALE_UP with the new count and queue size.
+}
+
+void LoadBalancer::removeServer() {
+    // TODO(you): design decision! Which server do you remove?
+    //   Option A: prefer an idle one (no work lost).
+    //   Option B: if all are busy, put its current() request back into the queue first.
+    // Then delete it, erase it from servers_, update serversRemoved / minServers,
+    // and log Event::SCALE_DOWN.
+}
+
+void LoadBalancer::printSummary() const {
+    // TODO(you): design your summary. The log assignment grades:
+    //   - starting queue size, ending queue size, task time range (cfg_.minTime..maxTime)
+    //   - dynamic changes: servers added/removed, peak/min servers, peak queue
+    //   - randomness/processing: generated, assigned, completed, blocked
+    //   - end status: remaining in queue, active (busy) vs inactive (idle) servers
+    // Build it with an std::ostringstream and send it to log_.summary(...).
+    std::ostringstream out;
+    out << "==== " << name_ << " summary (TODO) ====";
+    log_.summary(out.str());
+}
+
+int LoadBalancer::queueSize() const { return queue_.size(); }
+int LoadBalancer::serverCount() const { return static_cast<int>(servers_.size()); }
+int LoadBalancer::clock() const { return clock_; }
+const Stats& LoadBalancer::stats() const { return stats_; }
+const std::string& LoadBalancer::name() const { return name_; }
