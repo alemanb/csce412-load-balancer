@@ -35,8 +35,21 @@ bool LoadBalancer::addRequest(const Request& r) {
     //   3. Otherwise push it on queue_, update peakQueue, log Event::ARRIVAL, return true.
     // Tip: put "[" + name_ + " t=" + std::to_string(clock_) + "]" at the front of each
     //      message so you can tell load balancers and times apart in the log.
-    (void)r;
-    return false;
+    stats_.generated += 1;
+    std::string msg;
+    
+    if (fw_.isBlocked(r.ipIn)){
+        msg = "[" + name_ + " t=" + std::to_string(clock_) + "] blocked " + r.ipIn;
+        stats_.blocked += 1;
+        log_.log(Event::BLOCKED,msg);
+        return false;
+    }
+    
+    queue_.push(r);
+    if (queue_.size() > stats_.peakQueue) stats_.peakQueue = queue_.size();
+    msg = "[" + name_ + " t=" + std::to_string(clock_) + "] queued " + r.ipIn + " -> " + r.ipOut;
+    log_.log(Event::ARRIVAL, msg);
+    return true;
 }
 
 void LoadBalancer::step() {
