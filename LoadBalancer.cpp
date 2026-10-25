@@ -59,6 +59,12 @@ void LoadBalancer::step() {
     //   - checkScaling()
     //   - clock_++
     // Think about why the order matters (e.g. can a request arrive and be served in the same cycle?).
+    if (generatesArrivals_){
+        generateArrivals();
+    }
+    processServers();
+    checkScaling();
+    clock_ += 1;
 }
 
 void LoadBalancer::run(int cycles) {
@@ -69,7 +75,12 @@ void LoadBalancer::generateArrivals() {
     // TODO(you): with cfg_.arrivalChance percent probability, create between 1 and
     // cfg_.maxArrivals random requests and pass each to addRequest().
     // randInt() from Request.h is useful here.
-
+    if (randInt(1, 100) <= cfg_.arrivalChance){
+        int count = randInt(1, cfg_.maxArrivals);
+        for (int i = 0; i < count; ++i){
+            addRequest(Request::random(cfg_.minTime, cfg_.maxTime));
+        }
+    }
 }
 
 void LoadBalancer::processServers() {
