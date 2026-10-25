@@ -69,6 +69,7 @@ void LoadBalancer::generateArrivals() {
     // TODO(you): with cfg_.arrivalChance percent probability, create between 1 and
     // cfg_.maxArrivals random requests and pass each to addRequest().
     // randInt() from Request.h is useful here.
+
 }
 
 void LoadBalancer::processServers() {
@@ -77,6 +78,27 @@ void LoadBalancer::processServers() {
     //   - if it is now idle and the queue isn't empty, pop() a request, assign() it,
     //     count it, and log Event::ASSIGN.
     //   - add up idle servers into stats_.idleServerCycles (shows under/over-utilization).
+
+    std::string msg;
+    for (size_t i = 0; i < servers_.size(); ++i) {
+        WebServer* s = servers_[i];
+
+        if (s->tick()) {
+            stats_.completed += 1;
+            msg = "[" + name_ + " t=" + std::to_string(clock_) + "] server " + std::to_string(s->id()) + " finished " + s->current().ipIn;
+            log_.log(Event::COMPLETE, msg);
+        }
+
+        if (s->isIdle() && !queue_.empty()) {
+            Request next = queue_.pop();
+            s->assign(next);
+            stats_.assigned += 1;
+            msg = "[" + name_ + " t=" + std::to_string(clock_) + "] server " + std::to_string(s->id()) + " <- " + next.ipIn + " type=" + std::string(1, next.jobType) + " time=" + std::to_string(next.time);
+            log_.log(Event::ASSIGN, msg);
+        }
+
+        if (s->isIdle()) stats_.idleServerCycles += 1;
+    }
 }
 
 void LoadBalancer::checkScaling() {
