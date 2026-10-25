@@ -118,6 +118,17 @@ void LoadBalancer::checkScaling() {
     //   - Compare queue_.size() with cfg_.minThreshold * servers and cfg_.maxThreshold * servers.
     //   - Too big -> addServer(). Too small -> removeServer() (never go below 1 server!).
     //   - Reset lastScaleTime_ so you wait n cycles before checking again.
+    if (clock_ - lastScaleTime_ < cfg_.scaleWait) return;
+    
+    int size = queue_.size();
+    if (size > cfg_.maxThreshold * serverCount()){
+        addServer();
+        lastScaleTime_ = clock_;
+    }
+    else if (size < cfg_.minThreshold * serverCount() && serverCount() > 1){
+        removeServer();
+        lastScaleTime_ = clock_;
+    }
 }
 
 void LoadBalancer::addServer() {
@@ -147,7 +158,7 @@ void LoadBalancer::removeServer() {
             break;
         }
     }
-    
+
     WebServer* s = servers_[index];
     int id = s->id();
     if (!s->isIdle()) queue_.push(s->current());
