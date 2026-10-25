@@ -123,6 +123,13 @@ void LoadBalancer::checkScaling() {
 void LoadBalancer::addServer() {
     // TODO(you): new a WebServer with the next id, push it into servers_,
     // update serversAdded / peakServers, log Event::SCALE_UP with the new count and queue size.
+    WebServer* s = new WebServer(nextServerId_);
+    nextServerId_ += 1;
+    servers_.push_back(s);
+    stats_.serversAdded += 1;
+    if (serverCount() > stats_.peakServers) stats_.peakServers = serverCount();
+    std::string msg = "[" + name_ + " t=" + std::to_string(clock_) + "] added server " + std::to_string(s->id()) + " -> " + std::to_string(serverCount()) + " servers, queue=" + std::to_string(queue_.size());
+    log_.log(Event::SCALE_UP, msg);
 }
 
 void LoadBalancer::removeServer() {
@@ -131,6 +138,27 @@ void LoadBalancer::removeServer() {
     //   Option B: if all are busy, put its current() request back into the queue first.
     // Then delete it, erase it from servers_, update serversRemoved / minServers,
     // and log Event::SCALE_DOWN.
+    if (serverCount() <= 1) return;
+
+    size_t index = servers_.size() - 1;
+    for (size_t i = 0; i < servers_.size(); ++i){
+        if (servers_[i]->isIdle()){
+            index = i;
+            break;
+        }
+    }
+    
+    WebServer* s = servers_[index];
+    int id = s->id();
+    if (!s->isIdle()) queue_.push(s->current());
+
+    delete s;
+    servers_.erase(servers_.begin() + index);
+    stats_.serversRemoved += 1;
+    if (serverCount() < stats_.minServers) stats_.minServers = serverCount();
+
+    std::string msg = "[" + name_ + " t=" + std::to_string(clock_) + "] removed server " + std::to_string(id) + " -> " + std::to_string(serverCount()) + " servers, queue=" + std::to_string(queue_.size());
+    log_.log(Event::SCALE_DOWN, msg);
 }
 
 void LoadBalancer::printSummary() const {
