@@ -31,6 +31,7 @@ struct Stats {
     int minServers = 0;           ///< Fewest servers at once.
     int peakQueue = 0;            ///< Largest queue size seen.
     long long idleServerCycles = 0;  ///< Sum over cycles of idle servers (utilization).
+    long long serverCycles = 0;      ///< Sum over cycles of all servers (utilization).
 };
 
 /**

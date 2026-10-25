@@ -4,6 +4,7 @@
  */
 #include "LoadBalancer.h"
 
+#include <iomanip>
 #include <sstream>
 
 LoadBalancer::LoadBalancer(const std::string& name, const Config& cfg, Logger& log,
@@ -59,9 +60,7 @@ void LoadBalancer::step() {
     //   - checkScaling()
     //   - clock_++
     // Think about why the order matters (e.g. can a request arrive and be served in the same cycle?).
-    if (generatesArrivals_){
-        generateArrivals();
-    }
+    if (generatesArrivals_) generateArrivals();
     processServers();
     checkScaling();
     clock_ += 1;
@@ -109,6 +108,7 @@ void LoadBalancer::processServers() {
         }
 
         if (s->isIdle()) stats_.idleServerCycles += 1;
+        stats_.serverCycles += 1;
     }
 }
 
@@ -179,8 +179,46 @@ void LoadBalancer::printSummary() const {
     //   - randomness/processing: generated, assigned, completed, blocked
     //   - end status: remaining in queue, active (busy) vs inactive (idle) servers
     // Build it with an std::ostringstream and send it to log_.summary(...).
+    int busy = 0;
+    for (size_t i = 0; i < servers_.size(); ++i){
+        if (!servers_[i]->isIdle()) busy += 1;
+    }
+    double utilization = 0.0;
+    if (stats_.serverCycles > 0) utilization = 100.0 * (stats_.serverCycles - stats_.idleServerCycles) / stats_.serverCycles;
+
     std::ostringstream out;
-    out << "==== " << name_ << " summary (TODO) ====";
+    out << std::fixed << std::setprecision(1);
+    out << "================ " << name_ << " Load Balancer Summary ================\n";
+    out << "Clock cycles run:        " << clock_ << "\n";
+    out << "Task time range:         " << cfg_.minTime << " - " << cfg_.maxTime << " cycles\n";
+    out << "Arrival rate:            " << cfg_.arrivalChance << "% chance/cycle, 1-" << cfg_.maxArrivals << " requests\n";
+    out << "Scaling rule:            queue < " << cfg_.minThreshold << "x servers -> remove, > "
+        << cfg_.maxThreshold << "x servers -> add, wait " << cfg_.scaleWait << " cycles\n";
+    out << "\n-- Queue --\n";
+    out << "Starting queue size:     " << stats_.startQueueSize << "\n";
+    out << "Ending queue size:       " << queue_.size() << "\n";
+    out << "Peak queue size:         " << stats_.peakQueue << "\n";
+    out << "\n-- Requests --\n";
+    out << "Generated:               " << stats_.generated << "\n";
+    out << "Blocked by firewall:     " << stats_.blocked << "\n";
+    out << "Assigned to servers:     " << stats_.assigned << "\n";
+    out << "Completed:               " << stats_.completed << "\n";
+    out << "Still in progress:       " << busy << "\n";
+    out << "Remaining in queue:      " << queue_.size() << "\n";
+    out << "\n-- Servers --\n";
+    out << "Starting servers:        " << stats_.startServers << "\n";
+    out << "Ending servers:          " << serverCount() << "\n";
+    out << "  Active (busy):         " << busy << "\n";
+    out << "  Inactive (idle):       " << serverCount() - busy << "\n";
+    out << "Servers added:           " << stats_.serversAdded << "\n";
+    out << "Servers removed:         " << stats_.serversRemoved << "\n";
+    out << "Peak / min servers:      " << stats_.peakServers << " / " << stats_.minServers << "\n";
+    out << "Server utilization:      " << utilization << "%\n";
+    out << "\n-- Firewall --\n";
+    for (size_t i = 0; i < fw_.ranges().size(); ++i){
+        out << "Blocked range:           " << fw_.ranges()[i].text << "\n";
+    }
+    out << "=================================================================";
     log_.summary(out.str());
 }
 
